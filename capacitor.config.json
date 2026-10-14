@@ -1,0 +1,8 @@
+{
+  "appId": "hu.brezi.wortschatz",
+  "appName": "Brezi",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#F3F6FB"
+  }
+}
