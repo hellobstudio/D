@@ -1,0 +1,61 @@
+name: APK készítése
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kód letöltése
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Csomagok telepítése
+        run: npm install
+
+      - name: Android projekt létrehozása
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Ikonok, indítókép, álló tájolás, felolvasás
+        run: |
+          cp -r resources/android/res/. android/app/src/main/res/
+          find android/app/src/main/res -name 'splash.png' -exec cp resources/splash.png {} \;
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"\n            android:screenOrientation="portrait"/' android/app/src/main/AndroidManifest.xml
+          sed -i 's#</manifest>#    <queries>\n        <intent>\n            <action android:name="android.intent.action.TTS_SERVICE" />\n        </intent>\n    </queries>\n</manifest>#' android/app/src/main/AndroidManifest.xml
+
+      - name: Verziószám
+        run: |
+          sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+
+      - name: Állandó aláíró kulcs (frissítéskor megmarad a haladás)
+        run: |
+          mkdir -p ~/.android
+          cp signing/debug.keystore ~/.android/debug.keystore
+
+      - name: APK fordítása
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: APK feltöltése
+        uses: actions/upload-artifact@v4
+        with:
+          name: brezi-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
